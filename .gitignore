@@ -1,0 +1,4 @@
+# ignore rubymine config file
+.idea
+.DS_Store
+*swp

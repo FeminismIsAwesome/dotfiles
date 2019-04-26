@@ -1,0 +1,17 @@
+#!/bin/sh
+
+if [ `git rev-parse --abbrev-ref HEAD` == "master" ]; then
+  test "" == "$(grep -i "] wip" "$1")" || {
+    echo >&2 Warning - WIP commits are not permitted on master
+    exit 1
+  }
+fi
+
+if [ "$TRACKER_COMMIT" = false ]; then
+  echo "Disabling Tracker story id checking"
+elif [ `git rev-parse --abbrev-ref HEAD` == "master" ]; then
+  test "" != "$(grep -e "#\d\+\]" "$1")" || {
+      echo >&2 Please include a Tracker story id. Create a story if necessary
+      exit 1
+  }
+fi

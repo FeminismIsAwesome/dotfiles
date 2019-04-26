@@ -1,0 +1,50 @@
+#!/usr/bin/env ruby
+
+require 'net/http'
+require 'json'
+TOKEN = ENV.fetch('PIVOTAL_TRACKER_API_TOKEN') { raise "Please export your PIVOTAL_TRACKER_API_TOKEN before using this" }
+
+def get_pivotal_tracker_path(path)
+  full_path = "https://www.pivotaltracker.com/services/v5/#{path}"
+  JSON.parse(`curl --silent -X GET -H \"X-TrackerToken: #{TOKEN}\" \"#{full_path}\"`)
+end
+
+def dialog_options_box(options, backtitle, title, menu)
+  from_list = options.map{|o| "#{o[:story]} \"#{o[:description]}\""}.join(" ")
+  choice = `echo $(dialog --clear \
+                --backtitle \"#{backtitle}\" \
+                --title \"#{title}\" \
+                --menu \"#{menu}\" \
+                15 100 4 \
+                #{from_list} \
+                2>&1 >/dev/tty)`.strip
+  if choice != ""
+    choice = "##{choice.gsub("\n","").strip}"
+	  puts "you chose #{choice}. This will now be saved into your copy buffer"
+	  `echo "#{choice}" |  tr -d '\n' |  pbcopy`
+  end
+
+end
+
+myself = get_pivotal_tracker_path('me')
+
+my_id = myself["id"]
+my_project_ids = myself["projects"].map{|project| project["project_id"]}
+
+my_story_options = my_project_ids.map do |project_id|
+  unstarted_stories = get_pivotal_tracker_path("projects/#{project_id}/stories?with_state=started")
+  my_unstarted_stories = unstarted_stories.select{|story| story["owner_ids"].include?(my_id)}
+  my_unstarted_stories.map{|story| {
+  	story: story["id"],
+  	description: "#{story["name"]}"
+  	} 
+  }
+end.flatten
+
+dialog_command = `command -v dialog`
+if dialog_command == ""
+	puts "You don't have the dialog command installed. I'll just print it out for you instead, but if you want you can 'brew install dialog'"
+	puts my_story_options.map{|o|"##{o[:story]} -- #{o[:description]}"}
+else
+  dialog_options_box(my_story_options, "Exit", "Select a story to copy to your paste buffer", "Pivotal tracker menu")
+end
